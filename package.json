@@ -1,5 +1,11 @@
 {
   "name": "persona-checker",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "scripts": {
+    "start": "node api/hello.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
 }
