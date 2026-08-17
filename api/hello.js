@@ -206,9 +206,9 @@ const renderUI = (req, res) => {
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="badge">OpenRouter Vision Powered</div>
+      <div class="badge">OpenRouter AI Powered</div>
       <h1>Persona Checker AI</h1>
-      <p class="subtitle">ペルソナ視点でLPのファーストビュー画像とテキストをAIが診断します</p>
+      <p class="subtitle">ペルソナ視点でLPの構造とメッセージテキストをAIが診断します</p>
     </div>
 
     <div class="card">
@@ -226,7 +226,7 @@ const renderUI = (req, res) => {
 
       <div id="loadingState" class="loading-state">
         <div class="spinner-icon"></div>
-        <span>スクリーンショットとテキストを解析中... (約10~15秒)</span>
+        <span>サイトのテキスト情報を取得してAI解析中... (約5~10秒)</span>
       </div>
 
       <div id="resultArea">
@@ -291,55 +291,33 @@ const handleApi = async (req, res) => {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY が設定されていません' });
 
-    // 1. テキスト取得
+    // 1. テキスト取得 (Jina Reader API)
     const textRes = await fetch('https://r.jina.ai/' + targetUrl);
     if (!textRes.ok) return res.status(400).json({ error: 'Webサイトのテキスト取得に失敗しました' });
     const websiteText = await textRes.text();
 
-    // 2. スクショ画像取得（失敗時はスキップ）
-    let imageContent = null;
-    try {
-      const imgRes = await fetch('https://s.jina.ai/' + targetUrl);
-      const contentType = imgRes.headers.get('content-type') || '';
-      if (imgRes.ok && contentType.includes('image')) {
-        const arrayBuffer = await imgRes.arrayBuffer();
-        const base64Image = Buffer.from(arrayBuffer).toString('base64');
-        imageContent = `data:${contentType};base64,${base64Image}`;
-      }
-    } catch (e) {
-      console.log('画像取得スキップ:', e.message);
-    }
-
     const promptText = `あなたは『${persona || '20代〜30代の一般消費者（スマホメイン・直感重視）'}』です。
-添付された【ファーストビューのスクリーンショット画像】と【サイト全体のテキスト情報】を元に、スマホで流し読みした顧客になりきって評価してください。
+以下の【サイト全体のテキスト情報】を元に、スマホで流し読みした顧客になりきって評価してください。
 
-※注意: 画像とテキストに「実際に存在する要素」のみを根拠にして指摘してください。
+※注意: テキスト内に「実際に存在する要素」のみを根拠にして指摘してください。
 
 【対象Webサイトのテキスト情報】
 ${websiteText.slice(0, 3000)}
 
 【出力フォーマット】
-■ 第一印象（ファーストビューの見た目・3秒で感じたこと）:
-・画像を見た直感的な感想（デザイン、文字の読みやすさ、何をしているサイトかパッと分かるか）。
+■ 第一印象（文章から伝わるイメージ・キャッチコピーの分かりやすさ）:
+・テキストを見た直感的な感想（何をしているサイトかパッと分かるか）。
 
 ■ 生々しい離脱理由:
-・視覚的またはテキスト上のどの部分で「見づらい」「よく分からない」「怪しい」と感じて閉じたくなったか。
+・テキスト上のどの部分で「わかりにくい」「怪しい」「自分向けじゃない」と感じて閉じたくなったか。
 
 ■ プロの改善提案:
-1. 【キャッチコピー・デザインの修正案】
-・画像とテキストを踏まえた具体的な改善ポイント。
+1. 【キャッチコピー・メッセージの修正案】
+・ペルソナに刺さる具体的な文言の変更案。
 2. 【今すぐできるコンバージョン率UPのアクション】
-・ボタン位置・装飾・文言など、具体的な指示。`;
+・オファー（提案）や説明順序の変更など具体的な指示。`;
 
-    const userContent = [{ type: 'text', text: promptText }];
-    if (imageContent) {
-      userContent.unshift({
-        type: 'image_url',
-        image_url: { url: imageContent }
-      });
-    }
-
-    // 3. OpenRouter Vision API 呼び出し
+    // 2. OpenRouter API 呼び出し (安定した無料テキストモデルを使用)
     const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -349,8 +327,8 @@ ${websiteText.slice(0, 3000)}
         'X-Title': 'Persona Checker AI'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.2-11b-vision-instruct:free',
-        messages: [{ role: 'user', content: userContent }]
+        model: 'google/gemma-2-9b-it:free',
+        messages: [{ role: 'user', content: promptText }]
       })
     });
 
