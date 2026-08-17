@@ -22,7 +22,7 @@ app.get('/', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ペルソナ視点 LP診断ツール (Vision AI対応)</title>
+  <title>ペルソナ視点 LP診断ツール</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -69,7 +69,7 @@ app.get('/', (req, res) => {
 
     <button id="submitBtn" onclick="analyze()">画像＋テキストで高精度診断する</button>
 
-    <div id="spinner" class="spinner">Webサイトのスクショとテキストを取得してAI解析中...（約5〜10秒）</div>
+    <div id="spinner" class="spinner">Webサイトの情報を取得してAI解析中...（約5〜10秒）</div>
 
     <div id="resultArea">
       <h2>診断結果レポート</h2>
@@ -102,7 +102,15 @@ app.get('/', (req, res) => {
           body: JSON.stringify({ targetUrl, persona })
         });
 
-        const data = await res.json();
+        // サーバーがHTMLエラーを返した場合の対策
+        const rawText = await res.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch(e) {
+          throw new Error('サーバーエラーが発生しました。時間を置いて再試行してください。');
+        }
+
         if (!res.ok) throw new Error(data.details || data.error || 'エラーが発生しました');
 
         resultContent.textContent = data.analysis;
@@ -127,48 +135,47 @@ const handleApi = async (req, res) => {
     if (!targetUrl) return res.status(400).json({ error: 'URL is required' });
 
     const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) throw new Error('GROQ_API_KEY が設定されていません');
+    if (!apiKey) return res.status(500).json({ error: 'GROQ_API_KEY が設定されていません' });
 
-    // 1. テキストデータとスクショ画像を並行取得
-    const [textRes, imgRes] = await Promise.all([
-      fetch('https://r.jina.ai/' + targetUrl),
-      fetch('https://s.jina.ai/' + targetUrl)
-    ]);
-
-    if (!textRes.ok) throw new Error('Webサイトのテキスト取得に失敗しました');
+    // 1. テキスト取得
+    const textRes = await fetch('https://r.jina.ai/' + targetUrl);
+    if (!textRes.ok) return res.status(400).json({ error: 'Webサイトのテキスト取得に失敗しました' });
     const websiteText = await textRes.text();
 
-    // 画像をBase64変換
+    // 2. スクショ画像取得（失敗しても止まらずスキップする安全設計）
     let imageContent = null;
-    if (imgRes.ok) {
-      const arrayBuffer = await imgRes.arrayBuffer();
-      const base64Image = Buffer.from(arrayBuffer).toString('base64');
-      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-      imageContent = `data:${contentType};base64,${base64Image}`;
+    try {
+      const imgRes = await fetch('https://s.jina.ai/' + targetUrl);
+      const contentType = imgRes.headers.get('content-type') || '';
+      if (imgRes.ok && contentType.includes('image')) {
+        const arrayBuffer = await imgRes.arrayBuffer();
+        const base64Image = Buffer.from(arrayBuffer).toString('base64');
+        imageContent = `data:${contentType};base64,${base64Image}`;
+      }
+    } catch (e) {
+      console.log('画像取得スキップ:', e.message);
     }
 
     const promptText = `あなたは『${persona || '20代〜30代の一般消費者（スマホメイン・直感重視）'}』です。
-添付された【ファーストビューのスクリーンショット画像】と【サイト全体のテキスト情報】を元に、スマホで流し読みした顧客になりきって評価してください。
+提示されたWebサイト情報をもとに、スマホで流し読みした顧客になりきって評価してください。
 
-※注意: 画像とテキストに「実際に存在する要素」のみを根拠にして指摘してください。存在しない要素を捏造した批判は絶対禁止です。
+※注意: 実際に存在する要素のみを根拠にして指摘してください。存在しない要素を捏造した批判は絶対禁止です。
 
 【対象Webサイトのテキスト情報】
 ${websiteText.slice(0, 3000)}
 
 【出力フォーマット】
-■ 第一印象（ファーストビューの見た目・3秒で感じたこと）:
-・画像を見た直感的な感想（デザイン、文字の読みやすさ、何をしているサイトかパッと分かるか）。
+■ 第一印象（3秒で感じたこと）:
+・直感的な感想（読みやすさ、何をしているサイトかパッと分かるか）。
 
 ■ 生々しい離脱理由:
-・視覚的またはテキスト上のどの部分で「見づらい」「よく分からない」「怪しい」と感じて閉じたくなったか。
+・どの部分で「見づらい」「よく分からない」「怪しい」と感じて閉じたくなったか。
 
 ■ プロの改善提案:
-1. 【キャッチコピー・デザインの修正案】
-・画像とテキストを踏まえた具体的な改善ポイント。
-2. 【今すぐできるコンバージョン率UPのアクション】
-・ボタン位置・装飾・文言など、具体的な指示。`;
+1. 【キャッチコピー・表現の修正案】
+2. 【今すぐできるコンバージョン率UPのアクション】`;
 
-    // 2. Groq Vision APIに渡すメッセージ構造を組み立て
+    // 3. Groq APIメッセージ構造を組み立て
     const userContent = [{ type: 'text', text: promptText }];
     if (imageContent) {
       userContent.unshift({
@@ -177,7 +184,7 @@ ${websiteText.slice(0, 3000)}
       });
     }
 
-    // 3. Groq API (llama-3.2-90b-vision-preview) 呼び出し
+    // 4. Groq Vision API呼び出し
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -191,7 +198,7 @@ ${websiteText.slice(0, 3000)}
     });
 
     const groqData = await groqRes.json();
-    if (!groqRes.ok) throw new Error(groqData.error?.message || 'Groq APIエラー');
+    if (!groqRes.ok) return res.status(500).json({ error: groqData.error?.message || 'Groq APIエラー' });
 
     const responseText = groqData.choices?.[0]?.message?.content;
     return res.status(200).json({ analysis: responseText });
