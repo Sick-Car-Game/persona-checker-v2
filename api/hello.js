@@ -63,9 +63,9 @@ const renderUI = (req, res) => {
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="badge">Hugging Face AI Powered</div>
-      <h1>Persona Design Checker</h1>
-      <p class="subtitle">ペルソナ視点でLPのデザイン・配色・構造をAIが画像診断します</p>
+      <div class="badge">Keyless Free AI Engine</div>
+      <h1>Persona Structure Checker</h1>
+      <p class="subtitle">APIキー不要・完全無料でペルソナ視点のサイト構造・訴求分析を行います</p>
     </div>
 
     <div class="card">
@@ -79,15 +79,15 @@ const renderUI = (req, res) => {
         <input type="text" id="persona" placeholder="例: 30代女性（おしゃれで洗練された雰囲気を好む）">
       </div>
 
-      <button id="submitBtn" onclick="analyze()">デザイン診断を実行する</button>
+      <button id="submitBtn" onclick="analyze()">ペルソナ診断を実行する</button>
 
       <div id="loadingState" class="loading-state">
         <div class="spinner-icon"></div>
-        <span>画像キャプチャ＆デザイン解析中... (約10~15秒)</span>
+        <span>サイト構造データ解析中... (約3~5秒)</span>
       </div>
 
       <div id="resultArea">
-        <h2>デザイン分析レポート</h2>
+        <h2>分析レポート</h2>
         <div id="resultContent" class="result-content"></div>
       </div>
     </div>
@@ -141,84 +141,47 @@ const handleApi = async (req, res) => {
     const { targetUrl, persona } = req.body || {};
     if (!targetUrl) return res.status(400).json({ error: 'URL is required' });
 
-    const token = process.env.HF_TOKEN;
-    if (!token) return res.status(500).json({ error: 'HF_TOKEN が設定されていません' });
-
-    // スクリーンショットAPI呼び出し
-    const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false`;
-    const imageRes = await fetch(screenshotUrl);
+    // Jina ReaderでWebサイトの構造・コンテンツを取得
+    const jinaUrl = `https://r.jina.ai/${targetUrl}`;
+    const jinaRes = await fetch(jinaUrl);
     
-    if (!imageRes.ok) {
-      return res.status(400).json({ error: 'Webサイトのキャプチャ取得に失敗しました' });
+    if (!jinaRes.ok) {
+      return res.status(400).json({ error: 'Webサイトのテキスト情報を取得できませんでした' });
     }
 
-    const imageData = await imageRes.json();
-    const imageUrl = imageData?.data?.screenshot?.url;
+    const siteContent = await jinaRes.text();
+    const truncatedContent = siteContent.substring(0, 3000);
 
-    if (!imageUrl) {
-      return res.status(400).json({ error: '画像のURLが取得できませんでした' });
+    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』視点を持つWEBマーケターです。
+以下のWebサイト内容を分析し、指定の形式で診断結果を日本語で提供してください。
+
+【Webサイト内容】
+${truncatedContent}
+
+---
+以下の項目で分かりやすく評価してください：
+■ 第一印象・キャッチコピーの評価:
+■ 情報の分かりやすさ・構成の良し悪し:
+■ ペルソナ視点での離脱ポイント・懸念点:
+■ 今すぐ改善できる具体案（文章や構成）:`;
+
+    // 認証不要の公開AIプロキシエンドポイント（Pollinations API）を呼び出し
+    const freeAiRes = await fetch('https://text.pollinations.ai/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          { role: 'user', content: promptText }
+        ],
+        model: 'openai-large'
+      })
+    });
+
+    if (!freeAiRes.ok) {
+      return res.status(500).json({ error: 'AI応答の取得に失敗しました' });
     }
 
-    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』視点を持つUI/UXデザイナーです。
-提供されたWebサイトの画像を見て、以下の項目を日本語で簡潔に評価・診断してください。
-
-■ 第一印象・配色:
-■ 視線誘導・レイアウト:
-■ デザインの違和感・離脱原因:
-■ 今すぐできる具体的な修正案:`;
-
-    // 利用可能なVisionモデルの優先リスト
-    const visionModels = [
-      'Qwen/Qwen2.5-VL-7B-Instruct',
-      'meta-llama/Llama-3.2-11B-Vision-Instruct',
-      'Qwen/Qwen2-VL-7B-Instruct'
-    ];
-
-    let responseText = null;
-    let lastErrorDetails = '';
-
-    // 利用可能なモデルを順番に試行
-    for (const modelName of visionModels) {
-      try {
-        const hfRes = await fetch('https://router.huggingface.co/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: promptText },
-                  { type: 'image_url', image_url: { url: imageUrl } }
-                ]
-              }
-            ],
-            max_tokens: 800
-          })
-        });
-
-        const hfData = await hfRes.json();
-        if (hfRes.ok && hfData.choices?.[0]?.message?.content) {
-          responseText = hfData.choices[0].message.content;
-          break;
-        }
-        lastErrorDetails = hfData.error?.message || hfData.error || JSON.stringify(hfData);
-      } catch (e) {
-        lastErrorDetails = e.message;
-      }
-    }
-
-    if (!responseText) {
-      return res.status(500).json({
-        error: 'Hugging Face APIエラー',
-        details: lastErrorDetails || 'モデルの呼び出しに失敗しました'
-      });
-    }
-
+    const responseText = await freeAiRes.text();
     return res.status(200).json({ analysis: responseText });
 
   } catch (error) {
