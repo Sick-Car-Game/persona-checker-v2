@@ -22,7 +22,7 @@ const renderUI = (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Persona Checker AI</title>
+  <title>Design Persona Checker AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -31,184 +31,43 @@ const renderUI = (req, res) => {
       --bg: #fafafa;
       --surface: #ffffff;
       --border: #e4e4e7;
-      --border-hover: #d4d4d8;
       --text-main: #09090b;
       --text-muted: #71717a;
       --primary: #18181b;
       --primary-hover: #27272a;
       --accent-blue: #2563eb;
       --radius: 12px;
-      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
       --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 60px 20px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .wrapper {
-      width: 100%;
-      max-width: 680px;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 12px;
-      border-radius: 100px;
-      background-color: #eff6ff;
-      color: var(--accent-blue);
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      margin-bottom: 16px;
-      border: 1px solid #dbeafe;
-    }
-
-    h1 {
-      font-size: 2.25rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      color: var(--text-main);
-      margin-bottom: 12px;
-      line-height: 1.25;
-    }
-
-    p.subtitle {
-      color: var(--text-muted);
-      font-size: 1rem;
-      line-height: 1.6;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 32px;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .form-group {
-      margin-bottom: 24px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--text-main);
-      margin-bottom: 8px;
-    }
-
-    input[type="url"], input[type="text"] {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 0.95rem;
-      color: var(--text-main);
-      transition: all 0.15s ease;
-      outline: none;
-    }
-
-    input::placeholder { color: #a1a1aa; }
-
-    input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 1px var(--primary);
-    }
-
-    button {
-      width: 100%;
-      background-color: var(--primary);
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 14px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.15s ease, transform 0.05s ease;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-    }
-
+    body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
+    .wrapper { width: 100%; max-width: 680px; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 100px; background-color: #eff6ff; color: var(--accent-blue); font-size: 0.8rem; font-weight: 600; margin-bottom: 16px; border: 1px solid #dbeafe; }
+    h1 { font-size: 2.25rem; font-weight: 700; color: var(--text-main); margin-bottom: 12px; }
+    p.subtitle { color: var(--text-muted); font-size: 1rem; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow-lg); }
+    .form-group { margin-bottom: 24px; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
+    input[type="url"], input[type="text"] { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 0.95rem; color: var(--text-main); outline: none; }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    button { width: 100%; background-color: var(--primary); color: #ffffff; border: none; border-radius: 8px; padding: 14px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
     button:hover { background-color: var(--primary-hover); }
-    button:active { transform: scale(0.99); }
-    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-    .loading-state {
-      display: none;
-      text-align: center;
-      padding: 24px 0 8px;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    .spinner-icon {
-      width: 20px;
-      height: 20px;
-      border: 2px solid #e4e4e7;
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 12px;
-    }
-
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .loading-state { display: none; text-align: center; padding: 24px 0 8px; color: var(--text-muted); font-size: 0.9rem; }
+    .spinner-icon { width: 20px; height: 20px; border: 2px solid #e4e4e7; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    #resultArea {
-      margin-top: 32px;
-      display: none;
-      border-top: 1px solid var(--border);
-      padding-top: 28px;
-    }
-
-    #resultArea h2 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin-bottom: 16px;
-      color: var(--text-main);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .result-content {
-      white-space: pre-wrap;
-      line-height: 1.75;
-      font-size: 0.95rem;
-      color: #3f3f46;
-      background: #f4f4f5;
-      border-radius: 8px;
-      padding: 20px;
-      border: 1px solid #e4e4e7;
-    }
+    #resultArea { margin-top: 32px; display: none; border-top: 1px solid var(--border); padding-top: 28px; }
+    #resultArea h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; }
+    .result-content { white-space: pre-wrap; line-height: 1.75; font-size: 0.95rem; color: #3f3f46; background: #f4f4f5; border-radius: 8px; padding: 20px; border: 1px solid #e4e4e7; }
   </style>
 </head>
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="badge">OpenRouter AI Powered</div>
-      <h1>Persona Checker AI</h1>
-      <p class="subtitle">ペルソナ視点でLPの構造とメッセージテキストをAIが診断します</p>
+      <div class="badge">Groq Vision AI Powered</div>
+      <h1>Persona Design Checker</h1>
+      <p class="subtitle">ペルソナ視点でLPの「デザイン・配色・視線誘導」をAIが画像診断します</p>
     </div>
 
     <div class="card">
@@ -219,18 +78,18 @@ const renderUI = (req, res) => {
 
       <div class="form-group">
         <label for="persona">ターゲットペルソナ（任意）</label>
-        <input type="text" id="persona" placeholder="例: 30代子育て中の主婦（タイパ・コスパ重視）">
+        <input type="text" id="persona" placeholder="例: 30代女性（おしゃれで洗練された雰囲気を好む）">
       </div>
 
-      <button id="submitBtn" onclick="analyze()">診断を実行する</button>
+      <button id="submitBtn" onclick="analyze()">デザイン診断を実行する</button>
 
       <div id="loadingState" class="loading-state">
         <div class="spinner-icon"></div>
-        <span>サイトのテキスト情報を取得してAI解析中... (約5~10秒)</span>
+        <span>ファーストビュー画像をキャプチャしてデザイン解析中... (約5~10秒)</span>
       </div>
 
       <div id="resultArea">
-        <h2>分析結果レポート</h2>
+        <h2>デザイン分析レポート</h2>
         <div id="resultContent" class="result-content"></div>
       </div>
     </div>
@@ -245,10 +104,7 @@ const renderUI = (req, res) => {
       const resultArea = document.getElementById('resultArea');
       const resultContent = document.getElementById('resultContent');
 
-      if (!targetUrl) {
-        alert('URLを入力してください');
-        return;
-      }
+      if (!targetUrl) { alert('URLを入力してください'); return; }
 
       submitBtn.disabled = true;
       loadingState.style.display = 'block';
@@ -282,60 +138,66 @@ const renderUI = (req, res) => {
 app.get('/', renderUI);
 app.get('/api/hello', renderUI);
 
-// API診断メイン処理
+// API診断メイン処理（Groq Vision API使用）
 const handleApi = async (req, res) => {
   try {
     const { targetUrl, persona } = req.body || {};
     if (!targetUrl) return res.status(400).json({ error: 'URL is required' });
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY が設定されていません' });
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'GROQ_API_KEY が設定されていません' });
 
-    // 1. テキスト取得 (Jina Reader API)
-    const textRes = await fetch('https://r.jina.ai/' + targetUrl);
-    if (!textRes.ok) return res.status(400).json({ error: 'Webサイトのテキスト取得に失敗しました' });
-    const websiteText = await textRes.text();
+    // 1. 無料のスクリーンショットAPIでLPのファーストビュー画像を取得
+    const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false`;
+    const imageRes = await fetch(screenshotUrl);
+    const imageData = await imageRes.json();
+    const imageUrl = imageData?.data?.screenshot?.url;
 
-    const promptText = `あなたは『${persona || '20代〜30代の一般消費者（スマホメイン・直感重視）'}』です。
-以下の【サイト全体のテキスト情報】を元に、スマホで流し読みした顧客になりきって評価してください。
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'Webサイトの画像キャプチャに失敗しました' });
+    }
 
-※注意: テキスト内に「実際に存在する要素」のみを根拠にして指摘してください。
+    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』の視点を持つUI/UXデザイナーです。
+添付されたWebサイトのファーストビュー画像（デザイン）を見て、以下の項目を日本語で具体的に診断してください。
 
-【対象Webサイトのテキスト情報】
-${websiteText.slice(0, 3000)}
+【診断項目】
+■ ビジュアルの第一印象（配色・トーン＆マナー）:
+・デザイン全体の雰囲気や色使いが、ペルソナに合っているか。
 
-【出力フォーマット】
-■ 第一印象（文章から伝わるイメージ・キャッチコピーの分かりやすさ）:
-・テキストを見た直感的な感想（何をしているサイトかパッと分かるか）。
+■ 視線誘導とレイアウトの評価:
+・パッと見てどこに目が行くか。CTAボタンやキャッチコピーが目立っているか。
 
-■ 生々しい離脱理由:
-・テキスト上のどの部分で「わかりにくい」「怪しい」「自分向けじゃない」と感じて閉じたくなったか。
+■ デザイン上の離脱ポイント（違和感）:
+・ダサく見える部分、文字の見づらさ、視覚的なごちゃつきなど。
 
-■ プロの改善提案:
-1. 【キャッチコピー・メッセージの修正案】
-・ペルソナに刺さる具体的な文言の変更案。
-2. 【今すぐできるコンバージョン率UPのアクション】
-・オファー（提案）や説明順序の変更など具体的な指示。`;
+■ デザイン改善の具体案:
+・配色、フォントサイズ、配置など今すぐ修正すべきポイント。`;
 
-    // 2. OpenRouter API 呼び出し (安定した無料テキストモデルを使用)
-    const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // 2. Groq Vision APIを呼び出し（Llama 3.2 Visionを使用）
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://persona-checker-v2.onrender.com',
-        'X-Title': 'Persona Checker AI'
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.3-70b-instruct:free',
-        messages: [{ role: 'user', content: promptText }]
+        model: 'llama-3.2-11b-vision-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: promptText },
+              { type: 'image_url', image_url: { url: imageUrl } }
+            ]
+          }
+        ]
       })
     });
 
-    const openRouterData = await openRouterRes.json();
-    if (!openRouterRes.ok) return res.status(500).json({ error: openRouterData.error?.message || 'OpenRouter APIエラー' });
+    const groqData = await groqRes.json();
+    if (!groqRes.ok) return res.status(500).json({ error: groqData.error?.message || 'Groq APIエラー' });
 
-    const responseText = openRouterData.choices?.[0]?.message?.content;
+    const responseText = groqData.choices?.[0]?.message?.content;
     return res.status(200).json({ analysis: responseText });
 
   } catch (error) {
