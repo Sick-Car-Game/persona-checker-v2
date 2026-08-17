@@ -327,7 +327,7 @@ ${websiteText.slice(0, 3000)}
         'X-Title': 'Persona Checker AI'
       },
       body: JSON.stringify({
-        model: 'google/gemma-2-9b-it:free',
+        model: 'meta-llama/llama-3.3-70b-instruct:free',
         messages: [{ role: 'user', content: promptText }]
       })
     });
