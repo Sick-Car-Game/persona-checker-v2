@@ -144,41 +144,60 @@ const handleApi = async (req, res) => {
     const token = process.env.HF_TOKEN;
     if (!token) return res.status(500).json({ error: 'HF_TOKEN が設定されていません' });
 
+    // スクリーンショットAPI呼び出し
     const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false`;
     const imageRes = await fetch(screenshotUrl);
+    
+    if (!imageRes.ok) {
+      return res.status(400).json({ error: 'Webサイトのキャプチャ取得に失敗しました' });
+    }
+
     const imageData = await imageRes.json();
     const imageUrl = imageData?.data?.screenshot?.url;
 
     if (!imageUrl) {
-      return res.status(400).json({ error: 'Webサイトの画像キャプチャに失敗しました' });
+      return res.status(400).json({ error: '画像のURLが取得できませんでした' });
     }
 
-    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』視点を持つデザイナーです。
-添付のWebサイト画像を見て、以下の項目を日本語で評価・診断してください。
+    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』視点を持つUI/UXデザイナーです。
+提供されたWebサイトの画像を見て、以下の項目を日本語で簡潔に評価・診断してください。
 
 ■ 第一印象・配色:
 ■ 視線誘導・レイアウト:
 ■ デザインの違和感・離脱原因:
 ■ 今すぐできる具体的な修正案:`;
 
-    const hfRes = await fetch('https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct', {
+    // Hugging Face の OpenAI互換エンドポイント (router.huggingface.co) を使用
+    const hfRes = await fetch('https://router.huggingface.co/hf-inference/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        inputs: {
-          image: imageUrl,
-          question: promptText
-        }
+        model: 'Qwen/Qwen2-VL-7B-Instruct',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: promptText },
+              { type: 'image_url', image_url: { url: imageUrl } }
+            ]
+          }
+        ],
+        max_tokens: 800
       })
     });
 
     const hfData = await hfRes.json();
-    if (!hfRes.ok) return res.status(500).json({ error: hfData.error || 'Hugging Face APIエラー' });
+    if (!hfRes.ok) {
+      return res.status(500).json({ 
+        error: 'Hugging Face APIエラー', 
+        details: hfData.error?.message || hfData.error || JSON.stringify(hfData) 
+      });
+    }
 
-    const responseText = Array.isArray(hfData) ? hfData[0]?.generated_text : (hfData.generated_text || JSON.stringify(hfData));
+    const responseText = hfData.choices?.[0]?.message?.content;
     return res.status(200).json({ analysis: responseText });
 
   } catch (error) {
