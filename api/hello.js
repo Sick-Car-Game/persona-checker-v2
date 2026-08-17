@@ -177,7 +177,7 @@ ${websiteText.slice(0, 3000)}
       });
     }
 
-    // 3. Groq API (llama-3.2-11b-vision-preview) 呼び出し
+   // 3. Groq API 呼び出し (正式版Visionモデル)
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -185,7 +185,7 @@ ${websiteText.slice(0, 3000)}
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'llama-3.2-11b-vision-instruct',
         messages: [{ role: 'user', content: userContent }]
       })
     });
