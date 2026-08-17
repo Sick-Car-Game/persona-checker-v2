@@ -55,7 +55,7 @@ app.get('/', (req, res) => {
 <body>
   <div class="container">
     <h1>ペルソナLP診断ツール</h1>
-    <p class="subtitle">テキストとファーストビュー画像の両方をAIが認識して超高精度診断します</p>
+    <p class="subtitle">画像とテキストの両方をGroq Visionが認識して高精度診断します</p>
 
     <div class="form-group">
       <label for="targetUrl">診断したいWebサイトのURL</label>
@@ -69,7 +69,7 @@ app.get('/', (req, res) => {
 
     <button id="submitBtn" onclick="analyze()">画像＋テキストで高精度診断する</button>
 
-    <div id="spinner" class="spinner">Webサイトのキャプチャ取得とテキスト解析中...（約10〜15秒）</div>
+    <div id="spinner" class="spinner">Webサイトのスクショとテキストを取得してAI解析中...（約5〜10秒）</div>
 
     <div id="resultArea">
       <h2>診断結果レポート</h2>
@@ -138,7 +138,7 @@ const handleApi = async (req, res) => {
     if (!textRes.ok) throw new Error('Webサイトのテキスト取得に失敗しました');
     const websiteText = await textRes.text();
 
-    // 画像をBase64データに変換
+    // 画像をBase64変換
     let imageContent = null;
     if (imgRes.ok) {
       const arrayBuffer = await imgRes.arrayBuffer();
@@ -150,7 +150,7 @@ const handleApi = async (req, res) => {
     const promptText = `あなたは『${persona || '20代〜30代の一般消費者（スマホメイン・直感重視）'}』です。
 添付された【ファーストビューのスクリーンショット画像】と【サイト全体のテキスト情報】を元に、スマホで流し読みした顧客になりきって評価してください。
 
-※注意: 画像とテキストに「実際に存在する要素」のみを根拠にして指摘してください。存在しない要素を捏造した批判は厳禁です。
+※注意: 画像とテキストに「実際に存在する要素」のみを根拠にして指摘してください。存在しない要素を捏造した批判は絶対禁止です。
 
 【対象Webサイトのテキスト情報】
 ${websiteText.slice(0, 3000)}
@@ -177,7 +177,7 @@ ${websiteText.slice(0, 3000)}
       });
     }
 
-   // 3. Groq API 呼び出し (正式版Visionモデル)
+    // 3. Groq API (llama-3.2-90b-vision-preview) 呼び出し
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -185,7 +185,7 @@ ${websiteText.slice(0, 3000)}
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3.2-11b-vision-instruct',
+        model: 'llama-3.2-90b-vision-preview',
         messages: [{ role: 'user', content: userContent }]
       })
     });
