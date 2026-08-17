@@ -181,7 +181,7 @@ const handleApi = async (req, res) => {
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3.2-90b-vision-preview',
+        model: 'llama-3.3-70b-versatile', // Groqで最も安定しているフラッグシップモデル
         messages: [
           {
             role: 'user',
