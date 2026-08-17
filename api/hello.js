@@ -14,7 +14,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// GETアクセス時：デザインされたフロントエンド画面を返す
+// GETアクセス時：フロントエンド画面を表示
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -22,7 +22,7 @@ app.get('/', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ペルソナ視点 LP診断ツール</title>
+  <title>ペルソナ視点 LP診断ツール (Vision AI対応)</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -55,7 +55,7 @@ app.get('/', (req, res) => {
 <body>
   <div class="container">
     <h1>ペルソナLP診断ツール</h1>
-    <p class="subtitle">ターゲット顧客になりきったAIがサイトの離脱ポイントを毒舌診断します</p>
+    <p class="subtitle">テキストとファーストビュー画像の両方をAIが認識して超高精度診断します</p>
 
     <div class="form-group">
       <label for="targetUrl">診断したいWebサイトのURL</label>
@@ -67,9 +67,9 @@ app.get('/', (req, res) => {
       <input type="text" id="persona" placeholder="例: 30代子育て中の主婦（時短重視・コスパに敏感）">
     </div>
 
-    <button id="submitBtn" onclick="analyze()">診断を実行する</button>
+    <button id="submitBtn" onclick="analyze()">画像＋テキストで高精度診断する</button>
 
-    <div id="spinner" class="spinner">AIがサイトを読み込んで分析中...（約5〜10秒）</div>
+    <div id="spinner" class="spinner">Webサイトのキャプチャ取得とテキスト解析中...（約10〜15秒）</div>
 
     <div id="resultArea">
       <h2>診断結果レポート</h2>
@@ -120,40 +120,64 @@ app.get('/', (req, res) => {
   `);
 });
 
-// APIメイン処理（POST / 関連）
+// APIメイン処理
 const handleApi = async (req, res) => {
   try {
     const { targetUrl, persona } = req.body || {};
     if (!targetUrl) return res.status(400).json({ error: 'URL is required' });
 
-    // Jina AIでテキスト抽出
-    const jinaRes = await fetch('https://r.jina.ai/' + targetUrl);
-    if (!jinaRes.ok) throw new Error('Webサイトのテキスト取得に失敗しました');
-    const websiteText = await jinaRes.text();
-
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error('GROQ_API_KEY が設定されていません');
 
+    // 1. テキストデータとスクショ画像を並行取得
+    const [textRes, imgRes] = await Promise.all([
+      fetch('https://r.jina.ai/' + targetUrl),
+      fetch('https://s.jina.ai/' + targetUrl)
+    ]);
+
+    if (!textRes.ok) throw new Error('Webサイトのテキスト取得に失敗しました');
+    const websiteText = await textRes.text();
+
+    // 画像をBase64データに変換
+    let imageContent = null;
+    if (imgRes.ok) {
+      const arrayBuffer = await imgRes.arrayBuffer();
+      const base64Image = Buffer.from(arrayBuffer).toString('base64');
+      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+      imageContent = `data:${contentType};base64,${base64Image}`;
+    }
+
     const promptText = `あなたは『${persona || '20代〜30代の一般消費者（スマホメイン・直感重視）'}』です。
-以下に提供されるWebサイトのテキスト情報を、スマホ画面で3秒〜10秒程度サッと流し読みした顧客になりきって評価してください。
+添付された【ファーストビューのスクリーンショット画像】と【サイト全体のテキスト情報】を元に、スマホで流し読みした顧客になりきって評価してください。
+
+※注意: 画像とテキストに「実際に存在する要素」のみを根拠にして指摘してください。存在しない要素を捏造した批判は厳禁です。
 
 【対象Webサイトのテキスト情報】
-${websiteText.slice(0, 4000)}
+${websiteText.slice(0, 3000)}
 
 【出力フォーマット】
-■ 第一印象（3秒で感じたこと）:
-・一目で何のサイトか分かったか、自分向けだと思えたか直感的な感想。
+■ 第一印象（ファーストビューの見た目・3秒で感じたこと）:
+・画像を見た直感的な感想（デザイン、文字の読みやすさ、何をしているサイトかパッと分かるか）。
 
 ■ 生々しい離脱理由:
-・どの文章や情報を見た時に「めんどくさい」「よく分からない」「高そう/怪しい」と感じてページを閉じそうになったか。
+・視覚的またはテキスト上のどの部分で「見づらい」「よく分からない」「怪しい」と感じて閉じたくなったか。
 
 ■ プロの改善提案:
-1. 【キャッチコピー書き換え案】
-・現状の課題：
-・修正案：
+1. 【キャッチコピー・デザインの修正案】
+・画像とテキストを踏まえた具体的な改善ポイント。
 2. 【今すぐできるコンバージョン率UPのアクション】
-・ボタン文字の変更や、追加すべき補足情報の具体的指示。`;
+・ボタン位置・装飾・文言など、具体的な指示。`;
 
+    // 2. Groq Vision APIに渡すメッセージ構造を組み立て
+    const userContent = [{ type: 'text', text: promptText }];
+    if (imageContent) {
+      userContent.unshift({
+        type: 'image_url',
+        image_url: { url: imageContent }
+      });
+    }
+
+    // 3. Groq API (llama-3.2-11b-vision-preview) 呼び出し
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -161,8 +185,8 @@ ${websiteText.slice(0, 4000)}
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: promptText }]
+        model: 'llama-3.2-11b-vision-preview',
+        messages: [{ role: 'user', content: userContent }]
       })
     });
 
