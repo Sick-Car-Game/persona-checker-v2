@@ -167,37 +167,58 @@ const handleApi = async (req, res) => {
 ■ デザインの違和感・離脱原因:
 ■ 今すぐできる具体的な修正案:`;
 
-    // Hugging Face の OpenAI互換エンドポイント (router.huggingface.co) を使用
-    const hfRes = await fetch('https://router.huggingface.co/hf-inference/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'Qwen/Qwen2-VL-7B-Instruct',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: promptText },
-              { type: 'image_url', image_url: { url: imageUrl } }
-            ]
-          }
-        ],
-        max_tokens: 800
-      })
-    });
+    // 利用可能なVisionモデルの優先リスト
+    const visionModels = [
+      'Qwen/Qwen2.5-VL-7B-Instruct',
+      'meta-llama/Llama-3.2-11B-Vision-Instruct',
+      'Qwen/Qwen2-VL-7B-Instruct'
+    ];
 
-    const hfData = await hfRes.json();
-    if (!hfRes.ok) {
-      return res.status(500).json({ 
-        error: 'Hugging Face APIエラー', 
-        details: hfData.error?.message || hfData.error || JSON.stringify(hfData) 
+    let responseText = null;
+    let lastErrorDetails = '';
+
+    // 利用可能なモデルを順番に試行
+    for (const modelName of visionModels) {
+      try {
+        const hfRes = await fetch('https://router.huggingface.co/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: promptText },
+                  { type: 'image_url', image_url: { url: imageUrl } }
+                ]
+              }
+            ],
+            max_tokens: 800
+          })
+        });
+
+        const hfData = await hfRes.json();
+        if (hfRes.ok && hfData.choices?.[0]?.message?.content) {
+          responseText = hfData.choices[0].message.content;
+          break;
+        }
+        lastErrorDetails = hfData.error?.message || hfData.error || JSON.stringify(hfData);
+      } catch (e) {
+        lastErrorDetails = e.message;
+      }
+    }
+
+    if (!responseText) {
+      return res.status(500).json({
+        error: 'Hugging Face APIエラー',
+        details: lastErrorDetails || 'モデルの呼び出しに失敗しました'
       });
     }
 
-    const responseText = hfData.choices?.[0]?.message?.content;
     return res.status(200).json({ analysis: responseText });
 
   } catch (error) {
