@@ -4,7 +4,6 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS設定
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +13,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// UI（トップページ）の配信
 const renderUI = (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -65,9 +63,9 @@ const renderUI = (req, res) => {
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="badge">Groq Vision AI Powered</div>
+      <div class="badge">Hugging Face AI Powered</div>
       <h1>Persona Design Checker</h1>
-      <p class="subtitle">ペルソナ視点でLPの「デザイン・配色・視線誘導」をAIが画像診断します</p>
+      <p class="subtitle">ペルソナ視点でLPのデザイン・配色・構造をAIが画像診断します</p>
     </div>
 
     <div class="card">
@@ -85,7 +83,7 @@ const renderUI = (req, res) => {
 
       <div id="loadingState" class="loading-state">
         <div class="spinner-icon"></div>
-        <span>ファーストビュー画像をキャプチャしてデザイン解析中... (約5~10秒)</span>
+        <span>画像キャプチャ＆デザイン解析中... (約10~15秒)</span>
       </div>
 
       <div id="resultArea">
@@ -138,16 +136,14 @@ const renderUI = (req, res) => {
 app.get('/', renderUI);
 app.get('/api/hello', renderUI);
 
-// API診断メイン処理（Groq Vision API使用）
 const handleApi = async (req, res) => {
   try {
     const { targetUrl, persona } = req.body || {};
     if (!targetUrl) return res.status(400).json({ error: 'URL is required' });
 
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'GROQ_API_KEY が設定されていません' });
+    const token = process.env.HF_TOKEN;
+    if (!token) return res.status(500).json({ error: 'HF_TOKEN が設定されていません' });
 
-    // 1. 無料のスクリーンショットAPIでLPのファーストビュー画像を取得
     const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false`;
     const imageRes = await fetch(screenshotUrl);
     const imageData = await imageRes.json();
@@ -157,47 +153,32 @@ const handleApi = async (req, res) => {
       return res.status(400).json({ error: 'Webサイトの画像キャプチャに失敗しました' });
     }
 
-    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』の視点を持つUI/UXデザイナーです。
-添付されたWebサイトのファーストビュー画像（デザイン）を見て、以下の項目を日本語で具体的に診断してください。
+    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』視点を持つデザイナーです。
+添付のWebサイト画像を見て、以下の項目を日本語で評価・診断してください。
 
-【診断項目】
-■ ビジュアルの第一印象（配色・トーン＆マナー）:
-・デザイン全体の雰囲気や色使いが、ペルソナに合っているか。
+■ 第一印象・配色:
+■ 視線誘導・レイアウト:
+■ デザインの違和感・離脱原因:
+■ 今すぐできる具体的な修正案:`;
 
-■ 視線誘導とレイアウトの評価:
-・パッと見てどこに目が行くか。CTAボタンやキャッチコピーが目立っているか。
-
-■ デザイン上の離脱ポイント（違和感）:
-・ダサく見える部分、文字の見づらさ、視覚的なごちゃつきなど。
-
-■ デザイン改善の具体案:
-・配色、フォントサイズ、配置など今すぐ修正すべきポイント。`;
-
-    // 2. Groq Vision APIを呼び出し（Llama 3.2 Visionを使用）
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const hfRes = await fetch('https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', // Groqで最も安定しているフラッグシップモデル
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: promptText },
-              { type: 'image_url', image_url: { url: imageUrl } }
-            ]
-          }
-        ]
+        inputs: {
+          image: imageUrl,
+          question: promptText
+        }
       })
     });
 
-    const groqData = await groqRes.json();
-    if (!groqRes.ok) return res.status(500).json({ error: groqData.error?.message || 'Groq APIエラー' });
+    const hfData = await hfRes.json();
+    if (!hfRes.ok) return res.status(500).json({ error: hfData.error || 'Hugging Face APIエラー' });
 
-    const responseText = groqData.choices?.[0]?.message?.content;
+    const responseText = Array.isArray(hfData) ? hfData[0]?.generated_text : (hfData.generated_text || JSON.stringify(hfData));
     return res.status(200).json({ analysis: responseText });
 
   } catch (error) {
