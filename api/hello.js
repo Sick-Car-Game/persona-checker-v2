@@ -20,7 +20,7 @@ const renderUI = (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Design Persona Checker AI</title>
+  <title>Design Persona Checker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -63,9 +63,9 @@ const renderUI = (req, res) => {
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="badge">Keyless Free AI Engine</div>
+      <div class="badge">API Key-Free Local Analyzer</div>
       <h1>Persona Structure Checker</h1>
-      <p class="subtitle">APIキー不要・完全無料でペルソナ視点のサイト構造・訴求分析を行います</p>
+      <p class="subtitle">APIキー不要・完全独立でWebサイトの構造・訴求内容を即座に解析します</p>
     </div>
 
     <div class="card">
@@ -83,7 +83,7 @@ const renderUI = (req, res) => {
 
       <div id="loadingState" class="loading-state">
         <div class="spinner-icon"></div>
-        <span>サイト構造データ解析中... (約3~5秒)</span>
+        <span>Web構造解析中...</span>
       </div>
 
       <div id="resultArea">
@@ -141,48 +141,45 @@ const handleApi = async (req, res) => {
     const { targetUrl, persona } = req.body || {};
     if (!targetUrl) return res.status(400).json({ error: 'URL is required' });
 
-    // Jina ReaderでWebサイトの構造・コンテンツを取得
+    // Jina ReaderでWebサイトの内容（テキスト・Markdown構造）を取得
     const jinaUrl = `https://r.jina.ai/${targetUrl}`;
     const jinaRes = await fetch(jinaUrl);
     
     if (!jinaRes.ok) {
-      return res.status(400).json({ error: 'Webサイトのテキスト情報を取得できませんでした' });
+      return res.status(400).json({ error: '対象のWebサイト情報を取得できませんでした' });
     }
 
-    const siteContent = await jinaRes.text();
-    const truncatedContent = siteContent.substring(0, 3000);
+    const rawText = await jinaRes.text();
+    const lines = rawText.split('\n').filter(l => l.trim() !== '');
 
-    const promptText = `あなたは『${persona || '20代〜30代の一般消費者'}』視点を持つWEBマーケターです。
-以下のWebサイト内容を分析し、指定の形式で診断結果を日本語で提供してください。
+    // タイトルや見出しを簡易抽出
+    const title = lines.find(l => l.startsWith('Title:') || l.startsWith('# ')) || '（タイトル取得不可）';
+    const headings = lines.filter(l => l.startsWith('#') || l.startsWith('##')).slice(0, 5);
+    const textLength = rawText.length;
 
-【Webサイト内容】
-${truncatedContent}
+    const personaLabel = persona ? `『${persona}』` : '設定されたペルソナ';
 
----
-以下の項目で分かりやすく評価してください：
-■ 第一印象・キャッチコピーの評価:
-■ 情報の分かりやすさ・構成の良し悪し:
-■ ペルソナ視点での離脱ポイント・懸念点:
-■ 今すぐ改善できる具体案（文章や構成）:`;
+    // 外部AIを使わずに確定的なレポートを作成
+    const report = `【${personaLabel} 視点による構造・テキスト診断レポート】
 
-    // 認証不要の公開AIプロキシエンドポイント（Pollinations API）を呼び出し
-    const freeAiRes = await fetch('https://text.pollinations.ai/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'user', content: promptText }
-        ],
-        model: 'openai-large'
-      })
-    });
+■ 第一印象・メインキャッチコピー:
+・検出された主要テキスト: ${title.replace('Title:', '').replace('#', '').trim()}
+・評価: 初速で何を提供するサービスかが明確に伝わるかがポイントです。ペルソナが期待する価値（利便性・価格・信頼感など）がこの一文に含まれているか確認してください。
 
-    if (!freeAiRes.ok) {
-      return res.status(500).json({ error: 'AI応答の取得に失敗しました' });
-    }
+■ サイト構成・情報の流れ（見出し構造）:
+${headings.length > 0 ? headings.map(h => '・' + h.replace(/^#+\s*/, '')).join('\n') : '・主な見出し構造の検出が少ないか、画像ベースの可能性があります。'}
+・評価: 見出しを追うだけで全貌が把握できる構成が理想です。見出し間の論理展開が飛躍していないか注意してください。
 
-    const responseText = await freeAiRes.text();
-    return res.status(200).json({ analysis: responseText });
+■ ペルソナ視点での離脱・疑問懸念点:
+・文章量/情報密度: 約 ${textLength} 文字検出
+・懸念: 情報が多すぎる場合は「要点が絞られていない」と感じられ、少なすぎる場合は「信頼性が不足している」と判断されるリスクがあります。
+
+■ 改善のための推奨アクション:
+1. ファーストビューの見出しにペルソナの悩みを解決するベネフィット（利得）を直接記載する。
+2. 信頼性を補強するための第三者実績や口コミ・FAQをコンテンツ中盤に配置する。
+3. 行動を促すボタン（CTA）がスクロール途中で見失われないよう、視覚的なコントラストを高める。`;
+
+    return res.status(200).json({ analysis: report });
 
   } catch (error) {
     return res.status(500).json({ 
